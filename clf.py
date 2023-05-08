@@ -15,11 +15,11 @@ def load_model(model, filename):
 
 def predict_with_resnet101(image_path):
     
-    resnet = models.resnet101()
+    # resnet = models.resnet101()
 
-    resnet = load_model(resnet, 'resnet_pretrained')
+    # resnet = load_model(resnet, 'resnet_pretrained')
     
-    # resnet = models.resnet101(pretrained=True)
+    resnet = models.resnet101(pretrained=True)
     
     # resnet = resnet101
     #https://pytorch.org/docs/stable/torchvision/models.html
