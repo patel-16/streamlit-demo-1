@@ -4,6 +4,8 @@ from PIL import Image
 import numpy as np
 import random
 import cv2
+import os
+import gdown
 
 COCO_INSTANCE_CATEGORY_NAMES = [
     '__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
@@ -31,12 +33,28 @@ def load_model(model, filename):
     model.load_state_dict(torch.load( filename+'.pth'))
     return model
 
+
+
 def predict_with_resnet101(image_path):
     
     # resnet = models.resnet101()
 
     # resnet = load_model(resnet, 'resnet_pretrained')
     
+
+    if os.path.isfile('resnet_scripted.pt')==False:
+
+
+        URL_RESNET = "https://drive.google.com/uc?id=18Rh9mN8FXb-8gsq9KsC9pxE3boqLrpFH"
+        
+        output = 'resnet_scripted.pt'
+        gdown.download(URL_RESNET, output, quiet=False)
+
+        # os.system("gdown 18Rh9mN8FXb-8gsq9KsC9pxE3boqLrpFH")
+        
+        # response_res = requests.get(URL_RESNET)
+        # open("resnet_scripted.pt", "wb").write(response_res.content)
+
     resnet = torch.jit.load('resnet_scripted.pt')
     print(type(resnet))
     # resnet = models.resnet101(pretrained=True)
@@ -77,6 +95,21 @@ def random_color_masks(image):
 
 def segment_with_mrcnn(image_path):
     
+
+    if os.path.isfile('mrcnn_scripted.pt')==False:
+
+
+    #     # URL_MRCNN = "https://drive.google.com/file/d/1E86dc0S3gx8P0Prtm1yqNVG5OuDnOtqX/view?usp=sharing"
+    # https://drive.google.com/file/d/1E86dc0S3gx8P0Prtm1yqNVG5OuDnOtqX/view?usp=sharing
+        URL_MRCNN = "https://drive.google.com/uc?id=1E86dc0S3gx8P0Prtm1yqNVG5OuDnOtqX"
+        
+        # os.system("gdown 1E86dc0S3gx8P0Prtm1yqNVG5OuDnOtqX")
+        output = 'mrcnn_scripted.pt'
+        gdown.download(URL_MRCNN, output, quiet=False)
+
+        # response_mrcnn = requests.get(URL_MRCNN)
+        # open("mrcnn_scripted.pt", "wb").write(response_mrcnn.content)
+
     mrcnn = torch.jit.load('mrcnn_scripted.pt')
     print(type(mrcnn))
     
