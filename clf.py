@@ -302,10 +302,10 @@ def sem_segment(image_path):
     p = preds[0].permute(1,2,0)
     p = torch.argmax(p, dim=2)
     # p = torch.unsqueeze(transform(img), -1)
-    print(p)
+    # print(p)
     plt.imsave('p.jpg', p.cpu())
-    plt.title('prediction')
-    plt.show()
+    # plt.title('prediction')
+    # plt.show()
     # p = np.array(p)
     p = np.array(p)
     
