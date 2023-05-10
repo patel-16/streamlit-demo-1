@@ -1,11 +1,18 @@
 from torchvision import models, transforms
 import torch
+import matplotlib as mpl
+import torch.nn as nn
+import matplotlib.pyplot as plt
+
+from skimage.transform import resize
 from PIL import Image
 import numpy as np
 import random
 import cv2
 import os
 import gdown
+
+
 
 COCO_INSTANCE_CATEGORY_NAMES = [
     '__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
@@ -22,6 +29,72 @@ COCO_INSTANCE_CATEGORY_NAMES = [
     'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
 ]
 
+device = "cpu"
+
+
+class Net(nn.Module):
+    def __init__(self, num_classes):
+        super(Net, self).__init__()
+        self.num_classes = num_classes
+        self.contracting_11 = self.conv_block(in_channels=3, out_channels=64)
+        self.contracting_12 = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.contracting_21 = self.conv_block(in_channels=64, out_channels=128)
+        self.contracting_22 = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.contracting_31 = self.conv_block(in_channels=128, out_channels=256)
+        self.contracting_32 = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.middle = self.conv_block(in_channels=256, out_channels=1024)
+        self.expansive_11 = nn.ConvTranspose2d(in_channels=1024, out_channels=256, kernel_size=3, stride=2, padding=1, output_padding=1)
+        self.expansive_12 = self.conv_block(in_channels=512, out_channels=256)
+        self.expansive_21 = nn.ConvTranspose2d(in_channels=256, out_channels=128, kernel_size=3, stride=2, padding=1, output_padding=1)
+        self.expansive_22 = self.conv_block(in_channels=256, out_channels=128)
+        self.expansive_31 = nn.ConvTranspose2d(in_channels=128, out_channels=64, kernel_size=3, stride=2, padding=1, output_padding=1)
+        self.expansive_32 = self.conv_block(in_channels=128, out_channels=64)
+        self.output = nn.Conv2d(in_channels=64, out_channels=num_classes, kernel_size=3, stride=1, padding=1)
+
+
+
+        
+    def conv_block(self, in_channels, out_channels):
+        block = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1),
+                                    nn.ReLU(),
+                                    nn.BatchNorm2d(num_features=out_channels),
+                                    nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1),
+                                    nn.ReLU(),
+                                    nn.BatchNorm2d(num_features=out_channels))
+        return block
+    
+    def forward(self, X):
+        
+        contracting_11_out = self.contracting_11(X) 
+        
+        contracting_12_out = self.contracting_12(contracting_11_out)
+        
+        contracting_21_out = self.contracting_21(contracting_12_out) 
+        
+        contracting_22_out = self.contracting_22(contracting_21_out) 
+        
+        contracting_31_out = self.contracting_31(contracting_22_out)  
+        
+        contracting_32_out = self.contracting_32(contracting_31_out) 
+        
+        middle_out = self.middle(contracting_32_out) 
+        
+        expansive_11_out = self.expansive_11(middle_out) 
+        
+        expansive_12_out = self.expansive_12(torch.cat((expansive_11_out, contracting_31_out), dim=1))
+        
+        expansive_21_out = self.expansive_21(expansive_12_out) 
+        
+        expansive_22_out = self.expansive_22(torch.cat((expansive_21_out, contracting_21_out), dim=1)) 
+        
+        expansive_31_out = self.expansive_31(expansive_22_out) 
+        
+        expansive_32_out = self.expansive_32(torch.cat((expansive_31_out, contracting_11_out), dim=1)) 
+        
+        output_out = self.output(expansive_32_out) 
+        return output_out
+
+
 def save_model(model, filename):
     # if not os.path.isdir('saved_models'):
     #     os.mkdir('saved_models')
@@ -32,6 +105,7 @@ def save_model(model, filename):
 def load_model(model, filename):
     model.load_state_dict(torch.load( filename+'.pth'))
     return model
+
 
 
 
@@ -79,6 +153,11 @@ def predict_with_resnet101(image_path):
     with open('imagenet_classes.txt') as f:
         classes = [line.strip() for line in f.readlines()]
 
+    # _,pred_lb = out.max(dim=1)
+
+    # heatmap_j2 = grad_cam(gcmodel, batch_t, pred_lb) # ()
+
+    # fig, axs = plt.subplots(1,1,figsize = (5,5))
     prob = torch.nn.functional.softmax(out, dim=1)[0] * 100
     _, indices = torch.sort(out, descending=True)
     return [(classes[idx], prob[idx].item()) for idx in indices[0][:5]]
@@ -178,3 +257,56 @@ def segment_with_mrcnn(image_path):
     # prob = torch.nn.functional.softmax(out, dim=1)[0] * 100
     # _, indices = torch.sort(out, descending=True)
     # return [(classes[idx], prob[idx].item()) for idx in indices[0][:5]]
+
+
+def sem_segment(image_path):
+    
+
+    if os.path.isfile('sem_seg_scripted.pt')==False:
+
+
+    #     # URL_MRCNN = "https://drive.google.com/file/d/1E86dc0S3gx8P0Prtm1yqNVG5OuDnOtqX/view?usp=sharing"
+    # https://drive.google.com/file/d/1E86dc0S3gx8P0Prtm1yqNVG5OuDnOtqX/view?usp=sharing
+        URL_SEMSEG = "https://drive.google.com/uc?id=1MzWWD6f7w8kVw5o0tAbWIBElQ4mvZ18O"
+        # https://drive.google.com/file/d/1MzWWD6f7w8kVw5o0tAbWIBElQ4mvZ18O/view?usp=share_link
+        # os.system("gdown 1E86dc0S3gx8P0Prtm1yqNVG5OuDnOtqX")
+        output = 'sem_seg_scripted.pt'
+        gdown.download(URL_SEMSEG, output, quiet=False)
+
+        # response_mrcnn = requests.get(URL_MRCNN)
+        # open("mrcnn_scripted.pt", "wb").write(response_mrcnn.content)
+
+    sem_seg_model = torch.jit.load('sem_seg_scripted.pt')
+    print(type(sem_seg_model))
+    
+    # mrcnn = models.detection.maskrcnn_resnet50_fpn(pretrained=True)
+    
+    transform = transforms.Compose([
+        transforms.ToTensor()
+        ] )
+
+    img = Image.open(image_path)
+    images = torch.unsqueeze(transform(img), 0)
+
+
+    device = 'cpu'
+    im = images #$ , labels
+    batchsize = images.shape[0]
+    images = images.to(device, dtype=torch.float32)
+    # labels = labels.to(device, dtype=torch.float32)
+    preds = sem_seg_model(images)
+    # loss = self.crit(preds, labels.long()) 
+    # lossitem = loss.item() 
+    # del loss
+
+    p = preds[0].permute(1,2,0)
+    p = torch.argmax(p, dim=2)
+    # p = torch.unsqueeze(transform(img), -1)
+    print(p)
+    plt.imsave('p.jpg', p.cpu())
+    plt.title('prediction')
+    plt.show()
+    # p = np.array(p)
+    p = np.array(p)
+    
+    return p
